@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -129,3 +129,9 @@ class PostRepository:
     async def delete(self, post: Post) -> None:
         await self.session.delete(post)
         await self.session.flush()
+
+    async def delete_created_before(self, cutoff: datetime) -> int:
+        result = await self.session.execute(
+            delete(Post).where(Post.created_at < cutoff)
+        )
+        return int(result.rowcount or 0)

@@ -37,3 +37,8 @@ class NotFoundError(AppException):
 class ConflictError(AppException):
     def __init__(self, message: str, details: Any | None = None) -> None:
         super().__init__(409, message, details)
+
+
+class TooManyRequestsError(AppException):
+    def __init__(self, message: str = "Too many requests") -> None:
+        super().__init__(429, message)

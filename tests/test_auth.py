@@ -89,6 +89,69 @@ async def test_invalid_login(client: AsyncClient) -> None:
     assert response.json()["success"] is False
 
 
+async def test_failed_login_attempts_are_counted(
+    client: AsyncClient,
+    login_rate_limiter,
+) -> None:
+    await register_user(client, PRIMARY_USER)
+
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": PRIMARY_USER["email"],
+            "password": "WrongLaziz123",
+        },
+    )
+
+    assert response.status_code == 401
+    assert sum(login_rate_limiter.attempts.values()) == 1
+
+
+async def test_too_many_failed_login_attempts_returns_429(
+    client: AsyncClient,
+) -> None:
+    await register_user(client, PRIMARY_USER)
+    payload = {
+        "email": PRIMARY_USER["email"],
+        "password": "WrongLaziz123",
+    }
+
+    for _ in range(5):
+        response = await client.post("/api/v1/auth/login", json=payload)
+        assert response.status_code == 401
+
+    blocked_response = await client.post("/api/v1/auth/login", json=payload)
+
+    assert blocked_response.status_code == 429
+    assert blocked_response.json()["success"] is False
+
+
+async def test_successful_login_still_works_after_failed_attempts(
+    client: AsyncClient,
+    login_rate_limiter,
+) -> None:
+    await register_user(client, PRIMARY_USER)
+
+    for _ in range(2):
+        response = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": PRIMARY_USER["email"],
+                "password": "WrongLaziz123",
+            },
+        )
+        assert response.status_code == 401
+
+    token = await login_user(
+        client,
+        email=PRIMARY_USER["email"],
+        password=PRIMARY_USER["password"],
+    )
+
+    assert token
+    assert sum(login_rate_limiter.attempts.values()) == 0
+
+
 async def test_auth_me_with_valid_token(client: AsyncClient) -> None:
     await register_user(client, PRIMARY_USER)
     headers = await auth_headers(

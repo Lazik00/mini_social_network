@@ -9,7 +9,8 @@ from app.models.user import User
 from app.repositories.users import UserRepository
 from app.schemas.auth import LoginRequest
 from app.schemas.users import UserCreate
-from app.services.email import EmailSender, LoggingEmailSender
+from app.services.email import EmailSender, get_email_sender
+from app.services.rate_limit import LoginRateLimiter
 from app.services.verification import VerificationService
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class AuthService:
         self.session = session
         self.users = UserRepository(session)
         self.verification = VerificationService(session)
-        self.email_sender = email_sender or LoggingEmailSender()
+        self.email_sender = email_sender or get_email_sender()
 
     async def register(self, data: UserCreate) -> tuple[User, str]:
         email = str(data.email).lower()
@@ -54,7 +55,22 @@ class AuthService:
                 "User with this email or username already exists"
             ) from exc
 
-    async def login(self, data: LoginRequest) -> str:
+    async def login(
+        self,
+        data: LoginRequest,
+        *,
+        ip_address: str,
+        rate_limiter: LoginRateLimiter,
+    ) -> str:
+        identifier = str(data.email).lower() if data.email else data.username
+        if identifier is None:
+            raise UnauthorizedError("Invalid credentials")
+
+        await rate_limiter.ensure_allowed(
+            ip_address=ip_address,
+            identifier=identifier,
+        )
+
         user = None
         if data.email:
             user = await self.users.get_by_email(str(data.email).lower())
@@ -62,8 +78,13 @@ class AuthService:
             user = await self.users.get_by_username(data.username)
 
         if user is None or not verify_password(data.password, user.password_hash):
+            await rate_limiter.record_failure(
+                ip_address=ip_address,
+                identifier=identifier,
+            )
             logger.info("Failed login attempt")
             raise UnauthorizedError("Invalid credentials")
 
+        await rate_limiter.reset(ip_address=ip_address, identifier=identifier)
         logger.info("Successful login for user_id=%s", user.id)
         return create_access_token(user.id)

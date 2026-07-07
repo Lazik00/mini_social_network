@@ -1,14 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies.auth import get_current_user
+from app.api.v1.dependencies.rate_limit import get_login_rate_limiter
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterResponse, TokenResponse
 from app.schemas.users import UserCreate, UserRead
 from app.services.auth import AuthService
+from app.services.rate_limit import LoginRateLimiter
 from app.services.verification import VerificationService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -33,9 +35,16 @@ async def register(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     payload: LoginRequest,
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
+    rate_limiter: Annotated[LoginRateLimiter, Depends(get_login_rate_limiter)],
 ) -> TokenResponse:
-    token = await AuthService(session).login(payload)
+    ip_address = request.client.host if request.client else "unknown"
+    token = await AuthService(session).login(
+        payload,
+        ip_address=ip_address,
+        rate_limiter=rate_limiter,
+    )
     return TokenResponse(access_token=token)
 
 
