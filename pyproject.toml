@@ -1,0 +1,54 @@
+[project]
+name = "mini-social-network"
+version = "0.1.0"
+description = "FastAPI backend for a mini social network"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.13.3",
+    "asyncpg>=0.30.0",
+    "celery>=5.4.0",
+    "email-validator>=2.2.0",
+    "fastapi>=0.115.6",
+    "bcrypt==4.0.1",
+    "passlib[bcrypt]>=1.7.4",
+    "psycopg[binary]>=3.2.3",
+    "pydantic>=2.10.4",
+    "pydantic-settings>=2.7.0",
+    "python-jose[cryptography]>=3.3.0",
+    "redis>=5.2.1",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "uvicorn[standard]>=0.34.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "aiosqlite>=0.20.0",
+    "black>=24.10.0",
+    "httpx>=0.28.1",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "ruff>=0.8.4",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "S"]
+ignore = ["S101"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
