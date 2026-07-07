@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.models.email_verification_token import EmailVerificationToken
     from app.models.like import Like
     from app.models.post import Post
+    from app.models.refresh_token import RefreshToken
 
 
 class User(TimestampMixin, Base):
@@ -49,6 +50,11 @@ class User(TimestampMixin, Base):
         passive_deletes=True,
     )
     verification_tokens: Mapped[list["EmailVerificationToken"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,

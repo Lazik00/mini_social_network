@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     jwt_secret_key: SecretStr
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=30, ge=1)
+    refresh_token_expire_days: int = Field(default=30, ge=1)
     verification_token_expire_hours: int = Field(default=24, ge=1)
     cleanup_unverified_after_hours: int = Field(default=48, ge=1)
     maintenance_token: SecretStr | None = None

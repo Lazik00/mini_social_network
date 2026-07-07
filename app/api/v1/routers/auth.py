@@ -7,7 +7,12 @@ from app.api.v1.dependencies.auth import get_current_user
 from app.api.v1.dependencies.rate_limit import get_login_rate_limiter
 from app.db.session import get_session
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RegisterResponse, TokenResponse
+from app.schemas.auth import (
+    LoginRequest,
+    RefreshTokenRequest,
+    RegisterResponse,
+    TokenResponse,
+)
 from app.schemas.users import UserCreate, UserRead
 from app.services.auth import AuthService
 from app.services.rate_limit import LoginRateLimiter
@@ -40,12 +45,27 @@ async def login(
     rate_limiter: Annotated[LoginRateLimiter, Depends(get_login_rate_limiter)],
 ) -> TokenResponse:
     ip_address = request.client.host if request.client else "unknown"
-    token = await AuthService(session).login(
+    tokens = await AuthService(session).login(
         payload,
         ip_address=ip_address,
         rate_limiter=rate_limiter,
     )
-    return TokenResponse(access_token=token)
+    return TokenResponse(
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(
+    payload: RefreshTokenRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> TokenResponse:
+    tokens = await AuthService(session).refresh(payload)
+    return TokenResponse(
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+    )
 
 
 @router.get("/me", response_model=UserRead)

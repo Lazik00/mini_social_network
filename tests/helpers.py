@@ -73,6 +73,23 @@ async def login_user(
     return response.json()["access_token"]
 
 
+async def login_tokens(
+    client: AsyncClient,
+    *,
+    email: str | None = None,
+    username: str | None = None,
+    password: str | None = None,
+) -> dict[str, str]:
+    payload: dict[str, str] = {"password": password or PRIMARY_USER["password"]}
+    if email:
+        payload["email"] = email
+    if username:
+        payload["username"] = username
+    response = await client.post("/api/v1/auth/login", json=payload)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
 async def auth_headers(
     client: AsyncClient,
     *,

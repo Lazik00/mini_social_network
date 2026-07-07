@@ -45,6 +45,7 @@ Main entities:
 - `comments`: UUID PK, FK to post/user, content, timestamp.
 - `likes`: UUID PK, FK to post/user, unique `(user_id, post_id)`.
 - `email_verification_tokens`: hashed one-time token, expiry, used marker.
+- `refresh_tokens`: hashed refresh token, expiry, revoked marker.
 
 Foreign keys use cascade delete where appropriate. Uniqueness is enforced in PostgreSQL, not only in application code.
 
@@ -96,6 +97,7 @@ SOCIAL_REDIS_URL=redis://redis:6379/0
 SOCIAL_JWT_SECRET_KEY=replace-with-a-long-random-secret
 SOCIAL_JWT_ALGORITHM=HS256
 SOCIAL_ACCESS_TOKEN_EXPIRE_MINUTES=30
+SOCIAL_REFRESH_TOKEN_EXPIRE_DAYS=30
 SOCIAL_VERIFICATION_TOKEN_EXPIRE_HOURS=24
 SOCIAL_CLEANUP_UNVERIFIED_AFTER_HOURS=48
 SOCIAL_MAINTENANCE_TOKEN=local-maintenance-token
@@ -127,6 +129,7 @@ Main endpoints:
 ```text
 POST   /api/v1/auth/register
 POST   /api/v1/auth/login
+POST   /api/v1/auth/refresh
 GET    /api/v1/auth/me
 GET    /api/v1/auth/verify-email
 PATCH  /api/v1/users/me
@@ -177,11 +180,35 @@ curl "http://localhost:8010/api/v1/auth/verify-email?token=<VERIFICATION_TOKEN>"
 
 Login:
 
+Use either `email` or `username`, not both. Sending both fields returns HTTP `422`.
+
+Email login:
+
 ```bash
 curl -X POST http://localhost:8010/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"lazizyunusov@gmail.com","password":"Laziz123"}'
 ```
+
+Username login:
+
+```bash
+curl -X POST http://localhost:8010/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"lazizyunusov","password":"Laziz123"}'
+```
+
+Login returns both `access_token` and `refresh_token`. Store and use the access token in the `Authorization` header.
+
+Refresh access token:
+
+```bash
+curl -X POST http://localhost:8010/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token":"<REFRESH_TOKEN>"}'
+```
+
+Refresh tokens are stored only as hashes in the database and are rotated on every refresh. Reusing an old refresh token returns HTTP `401`.
 
 Current user:
 
@@ -301,7 +328,7 @@ GitHub Actions runs the same checks on `push` and `pull_request`.
 Current test coverage includes:
 
 - registration and duplicate email/username
-- login by email/username, invalid login, and protected endpoint access
+- login by email/username, invalid login, refresh token rotation, and protected endpoint access
 - login rate limiting and successful login after failed attempts
 - email verification success, invalid token, expired token, and one-time behavior
 - verified/unverified permissions
